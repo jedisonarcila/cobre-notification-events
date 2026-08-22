@@ -1,0 +1,5 @@
+region    = "us-east-1"
+project   = "cobre-notif"
+env       = "dev"
+vpc_cidr  = "10.0.0.0/16"
+image_tag = "latest"
