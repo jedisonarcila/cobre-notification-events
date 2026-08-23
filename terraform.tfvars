@@ -1,10 +1,3 @@
-<<<<<<< Updated upstream
-region    = "us-east-1"
-project   = "cobre-notif"
-env       = "dev"
-vpc_cidr  = "10.0.0.0/16"
-image_tag = "latest"
-=======
 region                 = "us-east-1"
 project                = "cobre-notif"
 env                    = "dev"
@@ -14,4 +7,3 @@ image_tag_api          = "v4"
 desired_count_delivery = 2
 desired_count_api      = 2
 image_tag_simulator    = "latest"
->>>>>>> Stashed changes

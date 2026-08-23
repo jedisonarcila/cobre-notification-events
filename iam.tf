@@ -104,8 +104,6 @@ data "aws_iam_policy_document" "task_delivery" {
     actions   = ["secretsmanager:GetSecretValue"]
     resources = ["arn:aws:secretsmanager:${var.region}:*:secret:cobre/webhook-hmac/*"]
   }
-<<<<<<< Updated upstream
-=======
   # Publica métricas a CloudWatch (Micrometer). PutMetricData no admite
   # restricción por recurso; se acota por namespace con una condición.
   statement {
@@ -125,7 +123,6 @@ data "aws_iam_policy_document" "task_delivery" {
     actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
     resources = [aws_kms_key.dynamodb.arn]
   }
->>>>>>> Stashed changes
 }
 
 resource "aws_iam_role_policy" "task_delivery" {

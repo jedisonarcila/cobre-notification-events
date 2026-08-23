@@ -50,19 +50,12 @@ resource "aws_ecs_task_definition" "api" {
 
   container_definitions = jsonencode([{
     name      = "events-api"
-<<<<<<< Updated upstream
-    image     = "${aws_ecr_repository.svc["events-api"].repository_url}:${var.image_tag}"
-=======
     image     = "${aws_ecr_repository.svc["events-api"].repository_url}:${var.image_tag_api}"
->>>>>>> Stashed changes
     essential = true
     portMappings = [{ containerPort = 8080, protocol = "tcp" }]
     environment = [
       { name = "TABLE_EVENTS", value = aws_dynamodb_table.notification_events.name },
       { name = "TABLE_SUBS",   value = aws_dynamodb_table.subscriptions.name },
-<<<<<<< Updated upstream
-      { name = "QUEUE_DELIVERIES_URL", value = aws_sqs_queue.deliveries.url }
-=======
       { name = "QUEUE_DELIVERIES_URL", value = aws_sqs_queue.deliveries.url },
       # Issuer de Cognito para que Spring Security (resource server) valide los JWT.
       { name = "COGNITO_ISSUER_URI", value = "https://cognito-idp.${var.region}.amazonaws.com/${aws_cognito_user_pool.main.id}" },
@@ -72,7 +65,6 @@ resource "aws_ecs_task_definition" "api" {
       # Loguea el proceso de validacion del JWT (issuer, audience, JWKS) y el flujo web.
       { name = "LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY", value = "INFO" },
       { name = "LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB",      value = "INFO" }
->>>>>>> Stashed changes
     ]
     logConfiguration = {
       logDriver = "awslogs"
