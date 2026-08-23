@@ -56,6 +56,12 @@ data "aws_iam_policy_document" "task_api" {
     "secretsmanager:DescribeSecret"]
     resources = ["arn:aws:secretsmanager:${var.region}:*:secret:cobre/webhook-hmac/*"]
   }
+  # Cifrado en reposo de DynamoDB: las tablas usan una CMK, leer/escribir requiere KMS.
+  statement {
+    sid       = "DynamoKmsAccess"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = [aws_kms_key.dynamodb.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "task_api" {
@@ -98,6 +104,28 @@ data "aws_iam_policy_document" "task_delivery" {
     actions   = ["secretsmanager:GetSecretValue"]
     resources = ["arn:aws:secretsmanager:${var.region}:*:secret:cobre/webhook-hmac/*"]
   }
+<<<<<<< Updated upstream
+=======
+  # Publica métricas a CloudWatch (Micrometer). PutMetricData no admite
+  # restricción por recurso; se acota por namespace con una condición.
+  statement {
+    sid       = "CloudWatchMetrics"
+    actions   = ["cloudwatch:PutMetricData"]
+    resources = ["*"]
+    condition {
+      test     = "StringEquals"
+      variable = "cloudwatch:namespace"
+      values   = ["notification-events-delivery", "notification-events-api", "notification-events-simulator"]
+    }
+  }
+  # Cifrado en reposo de DynamoDB: las tablas usan una CMK, así que leer/escribir
+  # requiere descifrar (Decrypt) y generar claves de datos (GenerateDataKey).
+  statement {
+    sid       = "DynamoKmsAccess"
+    actions   = ["kms:Decrypt", "kms:GenerateDataKey"]
+    resources = [aws_kms_key.dynamodb.arn]
+  }
+>>>>>>> Stashed changes
 }
 
 resource "aws_iam_role_policy" "task_delivery" {

@@ -39,7 +39,8 @@ resource "aws_apigatewayv2_integration" "api" {
   integration_method = "ANY"
   connection_type    = "VPC_LINK"
   connection_id      = aws_apigatewayv2_vpc_link.main.id
-  integration_uri    = aws_service_discovery_service.api.arn
+  # Apunta al listener del ALB interno (patron recomendado), no a Cloud Map.
+  integration_uri    = aws_lb_listener.api.arn
 }
 
 # ---------- Rutas (los 3 endpoints + CRUD suscripciones), todas con JWT ----------
@@ -50,6 +51,7 @@ locals {
     "POST /notification_events/{id_notification}/replay",
     "GET /subscriptions",
     "POST /subscriptions",
+    "GET /subscriptions/{subscription_id}",
     "PUT /subscriptions/{subscription_id}",
     "DELETE /subscriptions/{subscription_id}"
   ]

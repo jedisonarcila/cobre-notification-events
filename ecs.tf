@@ -30,27 +30,6 @@ resource "aws_ecs_cluster" "main" {
   tags = { Name = "${local.name_prefix}-cluster" }
 }
 
-# ---------- Cloud Map (service discovery para VPC Link del events-api) ----------
-resource "aws_service_discovery_private_dns_namespace" "main" {
-  name = "${local.name_prefix}.internal"
-  vpc  = aws_vpc.main.id
-}
-
-resource "aws_service_discovery_service" "api" {
-  name = "events-api"
-  dns_config {
-    namespace_id = aws_service_discovery_private_dns_namespace.main.id
-    dns_records {
-      type = "A"
-      ttl  = 10
-    }
-    routing_policy = "MULTIVALUE"
-  }
-  health_check_custom_config {
-    failure_threshold = 1
-  }
-}
-
 # ---------- CloudWatch Log Groups (uno por servicio, 7 días) ----------
 resource "aws_cloudwatch_log_group" "svc" {
   for_each          = toset(local.services)
@@ -71,13 +50,29 @@ resource "aws_ecs_task_definition" "api" {
 
   container_definitions = jsonencode([{
     name      = "events-api"
+<<<<<<< Updated upstream
     image     = "${aws_ecr_repository.svc["events-api"].repository_url}:${var.image_tag}"
+=======
+    image     = "${aws_ecr_repository.svc["events-api"].repository_url}:${var.image_tag_api}"
+>>>>>>> Stashed changes
     essential = true
     portMappings = [{ containerPort = 8080, protocol = "tcp" }]
     environment = [
       { name = "TABLE_EVENTS", value = aws_dynamodb_table.notification_events.name },
       { name = "TABLE_SUBS",   value = aws_dynamodb_table.subscriptions.name },
+<<<<<<< Updated upstream
       { name = "QUEUE_DELIVERIES_URL", value = aws_sqs_queue.deliveries.url }
+=======
+      { name = "QUEUE_DELIVERIES_URL", value = aws_sqs_queue.deliveries.url },
+      # Issuer de Cognito para que Spring Security (resource server) valide los JWT.
+      { name = "COGNITO_ISSUER_URI", value = "https://cognito-idp.${var.region}.amazonaws.com/${aws_cognito_user_pool.main.id}" },
+      # Audience esperado en el token (el app client M2M).
+      { name = "COGNITO_AUDIENCE", value = aws_cognito_user_pool_client.m2m.id },
+      # DEBUG TEMPORAL — REVERTIR ANTES DE ENTREGAR.
+      # Loguea el proceso de validacion del JWT (issuer, audience, JWKS) y el flujo web.
+      { name = "LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_SECURITY", value = "INFO" },
+      { name = "LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB",      value = "INFO" }
+>>>>>>> Stashed changes
     ]
     logConfiguration = {
       logDriver = "awslogs"
@@ -104,9 +99,14 @@ resource "aws_ecs_service" "api" {
     assign_public_ip = false
   }
 
-  service_registries {
-    registry_arn = aws_service_discovery_service.api.arn
+  load_balancer {
+    target_group_arn = aws_lb_target_group.api.arn
+    container_name   = "events-api"
+    container_port   = 8080
   }
+
+  # Espera a que el listener exista antes de crear el servicio.
+  depends_on = [aws_lb_listener.api]
 
   # Despliegue rolling con drenaje (recibe tráfico).
   deployment_minimum_healthy_percent = 100

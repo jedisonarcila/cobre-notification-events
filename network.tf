@@ -8,7 +8,7 @@ resource "aws_vpc" "main" {
   cidr_block           = var.vpc_cidr
   enable_dns_support   = true
   enable_dns_hostnames = true
-  tags                 = { Name = "${local.name_prefix}-vpc" }
+  tags = { Name = "${local.name_prefix}-vpc" }
 }
 
 # ---------- Internet Gateway ----------
@@ -27,7 +27,7 @@ resource "aws_subnet" "public" {
   cidr_block              = local.public_subnet_cidrs[count.index]
   availability_zone       = local.azs[count.index]
   map_public_ip_on_launch = true
-  tags                    = { Name = "${local.name_prefix}-public-${local.azs[count.index]}" }
+  tags = { Name = "${local.name_prefix}-public-${local.azs[count.index]}" }
 }
 
 # ---------- Subredes privadas (alojan el Fargate, sin IP pública) ----------
@@ -36,7 +36,7 @@ resource "aws_subnet" "private" {
   vpc_id            = aws_vpc.main.id
   cidr_block        = local.private_subnet_cidrs[count.index]
   availability_zone = local.azs[count.index]
-  tags              = { Name = "${local.name_prefix}-private-${local.azs[count.index]}" }
+  tags = { Name = "${local.name_prefix}-private-${local.azs[count.index]}" }
 }
 
 # ---------- NAT Gateways (uno por AZ, para HA del egreso) ----------
@@ -110,12 +110,12 @@ resource "aws_vpc_endpoint" "dynamodb" {
 # el tráfico AWS-interno NO sale por el NAT.
 locals {
   interface_endpoints = {
-    sqs     = "com.amazonaws.${var.region}.sqs"
-    secrets = "com.amazonaws.${var.region}.secretsmanager"
-    ecr_api = "com.amazonaws.${var.region}.ecr.api"
-    ecr_dkr = "com.amazonaws.${var.region}.ecr.dkr"
-    logs    = "com.amazonaws.${var.region}.logs"
-    sts     = "com.amazonaws.${var.region}.sts"
+    sqs        = "com.amazonaws.${var.region}.sqs"
+    secrets    = "com.amazonaws.${var.region}.secretsmanager"
+    ecr_api    = "com.amazonaws.${var.region}.ecr.api"
+    ecr_dkr    = "com.amazonaws.${var.region}.ecr.dkr"
+    logs       = "com.amazonaws.${var.region}.logs"
+    sts        = "com.amazonaws.${var.region}.sts"
   }
 }
 
@@ -169,12 +169,45 @@ resource "aws_vpc_security_group_ingress_rule" "api_from_vpclink" {
   ip_protocol       = "tcp"
 }
 
+# VPC Link y tarea comparten SG api. Self-reference: permite 8080 desde el propio SG.
+resource "aws_vpc_security_group_ingress_rule" "api_self_8080" {
+  security_group_id            = aws_security_group.api.id
+  description                  = "HTTP 8080 desde el propio SG para VPC Link"
+  referenced_security_group_id = aws_security_group.api.id
+  from_port                    = 8080
+  to_port                      = 8080
+  ip_protocol                  = "tcp"
+}
+
 resource "aws_vpc_security_group_egress_rule" "api_to_endpoints" {
   security_group_id            = aws_security_group.api.id
   description                  = "443 a interface endpoints"
   referenced_security_group_id = aws_security_group.endpoints.id
   from_port                    = 443
   to_port                      = 443
+  ip_protocol                  = "tcp"
+}
+
+# Egreso 443 a internet por NAT: necesario para el pull de imagenes de ECR
+# (capas en S3) y para descargar el JWKS de Cognito al validar tokens.
+# La API NO hace requests salientes a webhooks de clientes (eso es el worker),
+# asi que este egreso no reintroduce el riesgo SSRF que el diseno aisla en el worker.
+resource "aws_vpc_security_group_egress_rule" "api_to_internet" {
+  security_group_id = aws_security_group.api.id
+  description       = "443 a 0.0.0.0/0 por NAT (pull ECR/S3 + JWKS Cognito)"
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  to_port           = 443
+  ip_protocol       = "tcp"
+}
+
+# El VPC Link usa el SG api y debe SALIR hacia el ALB interno en el puerto 80.
+resource "aws_vpc_security_group_egress_rule" "api_to_alb" {
+  security_group_id            = aws_security_group.api.id
+  description                  = "80 hacia el ALB interno desde el VPC Link"
+  referenced_security_group_id = aws_security_group.alb.id
+  from_port                    = 80
+  to_port                      = 80
   ip_protocol                  = "tcp"
 }
 
